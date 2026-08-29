@@ -1,3 +1,11 @@
+---
+name: Bug report
+about: Report a problem or unexpected behavior
+title: "[BUG] "
+labels: bug
+---
+
+
 # Bug Report
 
 ## Description

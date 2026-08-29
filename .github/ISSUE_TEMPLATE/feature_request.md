@@ -1,3 +1,11 @@
+---
+name: Feature request
+about: Suggest an idea or improvement for the project
+title: "[FEATURE] "
+labels: enhancement
+---
+
+
 # Feature
 
 ## Description

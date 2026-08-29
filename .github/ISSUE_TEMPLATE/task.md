@@ -1,3 +1,11 @@
+---
+name: Task
+about: General activity to be done in our rep
+title: "[TASK] "
+labels: task
+---
+
+
 # Task
 
 ## Description
