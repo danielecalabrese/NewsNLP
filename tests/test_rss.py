@@ -21,7 +21,8 @@ def test_rss_reader_returns_articles_from_feed():
                     "published_parsed": None,
                     "description": "This is the article content.",
                 }
-            ]
+            ],
+            "bozo": False,
         }
     )
 
