@@ -29,3 +29,6 @@ env/
 
 # Local data
 data/
+
+# Automatic generatedd by pip - not useful for us
+*.egg-info/
