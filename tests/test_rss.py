@@ -3,13 +3,26 @@ import feedparser
 import logging
 from datetime import datetime, timezone
 from time import struct_time
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from feedparser import FeedParserDict
 from newsnlp.readers.rss import RSSReader
 from newsnlp.models.article import Article
 
 
-def test_rss_reader_returns_articles_from_feed():
+@pytest.fixture
+def mock_response():
+    response = Mock()
+    response.content = b"<rss>fake feed</rss>"
+    response.raise_for_status.return_value = None
+
+    with patch(
+        "newsnlp.readers.rss.requests.get",
+        return_value=response,
+    ):
+        yield response
+
+
+def test_rss_reader_returns_articles_from_feed(mock_response):
     feed = FeedParserDict(
         {
             "entries": [
@@ -49,7 +62,7 @@ def test_rss_reader_returns_articles_from_feed():
     assert article.fetched_at <= datetime.now(timezone.utc)
 
 
-def test_rss_reader_parses_published_at():
+def test_rss_reader_parses_published_at(mock_response):
     published_at = struct_time(
         (2026, 8, 30, 10, 30, 0, 6, 242, 0)
     )
@@ -80,7 +93,7 @@ def test_rss_reader_parses_published_at():
         2026, 8, 30, 10, 30, tzinfo=timezone.utc
     )
 
-def test_rss_reader_parses_summary():
+def test_rss_reader_parses_summary(mock_response):
     feed = FeedParserDict(
         {
             "entries": [
@@ -105,7 +118,7 @@ def test_rss_reader_parses_summary():
 
     assert articles[0].summary == "This is the article summary."
 
-def test_rss_reader_returns_empty_list_for_empty_feed():
+def test_rss_reader_returns_empty_list_for_empty_feed(mock_response):
     feed = FeedParserDict({"entries": []})
 
     with patch("newsnlp.readers.rss.feedparser.parse", return_value=feed):
@@ -118,7 +131,7 @@ def test_rss_reader_returns_empty_list_for_empty_feed():
 
     assert articles == []
 
-def test_rss_reader_uses_content_when_description_is_missing():
+def test_rss_reader_uses_content_when_description_is_missing(mock_response):
     feed = FeedParserDict(
         {
             "entries": [
@@ -146,7 +159,7 @@ def test_rss_reader_uses_content_when_description_is_missing():
 
     assert articles[0].content == "This is the article content."
 
-def test_rss_reader_uses_summary_when_content_is_missing():
+def test_rss_reader_uses_summary_when_content_is_missing(mock_response):
     feed = FeedParserDict(
         {
             "entries": [
@@ -170,7 +183,7 @@ def test_rss_reader_uses_summary_when_content_is_missing():
 
     assert articles[0].content == "This is the article summary."
 
-def test_rss_reader_skips_entries_without_content():
+def test_rss_reader_skips_entries_without_content(mock_response):
     feed = FeedParserDict(
         {
             "entries": [
@@ -200,7 +213,7 @@ def test_rss_reader_skips_entries_without_content():
     assert len(articles) == 1
     assert articles[0].id == "article-2"
 
-def test_rss_reader_raises_error_for_invalid_feed():
+def test_rss_reader_raises_error_for_invalid_feed(mock_response):
     feed = FeedParserDict(
         {
             "entries": [],
@@ -217,7 +230,7 @@ def test_rss_reader_raises_error_for_invalid_feed():
         with pytest.raises(ValueError, match="Invalid RSS feed"):
             reader.read()
 
-def test_rss_reader_preserves_optional_fields_when_missing():
+def test_rss_reader_preserves_optional_fields_when_missing(mock_response):
     feed = FeedParserDict(
         {
             "entries": [
@@ -246,7 +259,7 @@ def test_rss_reader_preserves_optional_fields_when_missing():
     assert article.summary is None
 
 
-def test_rss_reader_prefers_description_over_content_and_summary():
+def test_rss_reader_prefers_description_over_content_and_summary(mock_response):
     feed = FeedParserDict(
         {
             "entries": [
@@ -273,7 +286,7 @@ def test_rss_reader_prefers_description_over_content_and_summary():
     assert articles[0].content == "Description content."
 
 
-def test_rss_reader_prefers_content_over_summary():
+def test_rss_reader_prefers_content_over_summary(mock_response):
     feed = FeedParserDict(
         {
             "entries": [
@@ -298,17 +311,8 @@ def test_rss_reader_prefers_content_over_summary():
 
     assert articles[0].content == "Content value."
 
-def test_rss_reader_logs_error_for_invalid_feed(caplog):
-    reader = RSSReader("https://example.com/invalid-feed")
 
-    with caplog.at_level(logging.ERROR):
-        with pytest.raises(ValueError, match="Invalid RSS feed"):
-            reader.read()
-
-    assert "Invalid RSS feed" in caplog.text
-
-
-def test_rss_reader_logs_error_for_invalid_feed(caplog, monkeypatch):
+def test_rss_reader_logs_error_for_invalid_feed(caplog, monkeypatch, mock_response):
     def fake_parse(_):
         return FeedParserDict({"bozo": True})
 
@@ -326,7 +330,7 @@ def test_rss_reader_logs_error_for_invalid_feed(caplog, monkeypatch):
     assert "Invalid RSS feed" in caplog.text
 
 
-def test_rss_reader_logs_success(caplog, monkeypatch):
+def test_rss_reader_logs_success(caplog, monkeypatch, mock_response):
     fake_feed = FeedParserDict(
         {
             "bozo": False,
@@ -355,7 +359,7 @@ def test_rss_reader_logs_success(caplog, monkeypatch):
     assert "Successfully read RSS feed" in caplog.text
 
 
-def test_rss_reader_logs_and_skips_invalid_entry(caplog, monkeypatch):
+def test_rss_reader_logs_and_skips_invalid_entry(caplog, monkeypatch, mock_response):
     fake_feed = FeedParserDict(
         {
             "bozo": False,
@@ -401,7 +405,7 @@ def test_rss_reader_logs_and_skips_invalid_entry(caplog, monkeypatch):
     assert "Error parsing RSS entry article-2" in caplog.text
 
 
-def test_rss_reader_creates_one_article_per_feed_entry():
+def test_rss_reader_creates_one_article_per_feed_entry(mock_response):
     feed = FeedParserDict(
         {
             "entries": [
@@ -434,3 +438,69 @@ def test_rss_reader_creates_one_article_per_feed_entry():
     assert all(isinstance(article, Article) for article in articles)
     assert articles[0].id == "article-1"
     assert articles[1].id == "article-2"
+
+
+def test_rss_reader_downloads_feed_with_requests(monkeypatch):
+    fake_response = type(
+        "Response",
+        (),
+        {
+            "content": b"<rss>fake feed</rss>",
+            "raise_for_status": lambda self: None,
+        },
+    )()
+
+    fake_feed = FeedParserDict(
+        {
+            "bozo": False,
+            "entries": [
+                {
+                    "id": "article-1",
+                    "title": "Test article",
+                    "link": "https://example.com/article-1",
+                    "description": "Test article content",
+                }
+            ],
+        }
+    )
+
+    def fake_get(url, **kwargs):
+        assert url == "https://example.com/rss"
+        return fake_response
+
+    monkeypatch.setattr(
+        "newsnlp.readers.rss.requests.get",
+        fake_get,
+    )
+    monkeypatch.setattr(
+        "newsnlp.readers.rss.feedparser.parse",
+        lambda content: fake_feed,
+    )
+
+    reader = RSSReader(
+        "https://example.com/rss",
+        "test-source",
+    )
+
+    articles = reader.read()
+
+    assert len(articles) == 1
+    assert articles[0].id == "article-1"
+
+
+def test_rss_reader_raises_error_for_http_failure(monkeypatch):
+    def fake_get(url, **kwargs):
+        raise RuntimeError("Connection failed")
+
+    monkeypatch.setattr(
+        "newsnlp.readers.rss.requests.get",
+        fake_get,
+    )
+
+    reader = RSSReader(
+        "https://example.com/rss",
+        "test-source",
+    )
+
+    with pytest.raises(RuntimeError, match="Connection failed"):
+        reader.read()

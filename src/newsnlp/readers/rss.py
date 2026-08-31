@@ -1,5 +1,7 @@
 import logging
 import feedparser
+import certifi
+import requests
 from datetime import datetime, timezone
 from newsnlp.models.article import Article
 
@@ -18,7 +20,14 @@ class RSSReader:
         """Read the RSS feed and return its entries as Article objects."""
         
         logger.info("Reading RSS feed: %s", self.feed_url)
-        feed = feedparser.parse(self.feed_url)
+        response = requests.get(
+            self.feed_url,
+            verify=certifi.where(),
+            timeout=10,
+        )
+        response.raise_for_status()
+        
+        feed = feedparser.parse(response.content)
 
         if getattr(feed, "bozo", False):
             logger.error("Invalid RSS feed: %s", self.feed_url)
