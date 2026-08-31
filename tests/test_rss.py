@@ -1,11 +1,10 @@
 import pytest
+import feedparser
+import logging
 from datetime import datetime, timezone
 from time import struct_time
-
 from unittest.mock import patch
-
 from feedparser import FeedParserDict
-
 from newsnlp.readers.rss import RSSReader
 
 
@@ -295,3 +294,105 @@ def test_rss_reader_prefers_content_over_summary():
         articles = reader.read()
 
     assert articles[0].content == "Content value."
+
+def test_rss_reader_logs_error_for_invalid_feed(caplog):
+    reader = RSSReader("https://example.com/invalid-feed")
+
+    with caplog.at_level(logging.ERROR):
+        with pytest.raises(ValueError, match="Invalid RSS feed"):
+            reader.read()
+
+    assert "Invalid RSS feed" in caplog.text
+
+
+def test_rss_reader_logs_error_for_invalid_feed(caplog, monkeypatch):
+    def fake_parse(_):
+        return FeedParserDict({"bozo": True})
+
+    monkeypatch.setattr(feedparser, "parse", fake_parse)
+
+    reader = RSSReader(
+        "https://example.com/invalid-feed",
+        "test-source",
+    )
+
+    with caplog.at_level(logging.ERROR):
+        with pytest.raises(ValueError, match="Invalid RSS feed"):
+            reader.read()
+
+    assert "Invalid RSS feed" in caplog.text
+
+
+def test_rss_reader_logs_success(caplog, monkeypatch):
+    fake_feed = FeedParserDict(
+        {
+            "bozo": False,
+            "entries": [
+                {
+                    "id": "article-1",
+                    "title": "Test article",
+                    "link": "https://example.com/article-1",
+                    "description": "Test article content",
+                }
+            ],
+        }
+    )
+
+    monkeypatch.setattr(feedparser, "parse", lambda _: fake_feed)
+
+    reader = RSSReader(
+        "https://example.com/feed",
+        "test-source",
+    )
+
+    with caplog.at_level(logging.INFO):
+        articles = reader.read()
+
+    assert len(articles) == 1
+    assert "Successfully read RSS feed" in caplog.text
+
+
+def test_rss_reader_logs_and_skips_invalid_entry(caplog, monkeypatch):
+    fake_feed = FeedParserDict(
+        {
+            "bozo": False,
+            "entries": [
+                {
+                    "id": "article-1",
+                    "title": "Valid article",
+                    "link": "https://example.com/article-1",
+                    "description": "Valid article content",
+                },
+                {
+                    "id": "article-2",
+                    "title": "Invalid article",
+                    "link": "https://example.com/article-2",
+                    "description": "Invalid article content",
+                },
+            ],
+        }
+    )
+
+    monkeypatch.setattr(feedparser, "parse", lambda _: fake_feed)
+
+    reader = RSSReader(
+        "https://example.com/feed",
+        "test-source",
+    )
+
+    original_parse_entry = reader._parse_entry
+
+    def fake_parse_entry(entry):
+        if entry["id"] == "article-2":
+            raise ValueError("Invalid article")
+
+        return original_parse_entry(entry)
+
+    monkeypatch.setattr(reader, "_parse_entry", fake_parse_entry)
+
+    with caplog.at_level(logging.ERROR):
+        articles = reader.read()
+
+    assert len(articles) == 1
+    assert articles[0].id == "article-1"
+    assert "Error parsing RSS entry article-2" in caplog.text

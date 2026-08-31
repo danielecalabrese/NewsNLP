@@ -1,8 +1,10 @@
-from datetime import datetime, timezone
-
+import logging
 import feedparser
-
+from datetime import datetime, timezone
 from newsnlp.models.article import Article
+
+
+logger = logging.getLogger(__name__)
 
 
 class RSSReader:
@@ -14,19 +16,35 @@ class RSSReader:
 
     def read(self) -> list[Article]:
         """Read the RSS feed and return its entries as Article objects."""
-    
+        
+        logger.info("Reading RSS feed: %s", self.feed_url)
         feed = feedparser.parse(self.feed_url)
 
         if getattr(feed, "bozo", False):
+            logger.error("Invalid RSS feed: %s", self.feed_url)
             raise ValueError("Invalid RSS feed")
         
         articles = []
     
         for entry in feed.entries:
-            article = self._parse_entry(entry)
-    
+            try:
+                article = self._parse_entry(entry)
+            except Exception as exc:
+                logger.error(
+                    "Error parsing RSS entry %s: %s",
+                    entry.get("id", "<unknown>"),
+                    exc,
+                    )
+                continue
+            
             if article is not None:
                 articles.append(article)
+
+        logger.info(
+            "Successfully read RSS feed: %s (%d articles)",
+            self.feed_url,
+            len(articles),
+        )
     
         return articles
 
