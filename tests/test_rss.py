@@ -214,3 +214,84 @@ def test_rss_reader_raises_error_for_invalid_feed():
 
         with pytest.raises(ValueError, match="Invalid RSS feed"):
             reader.read()
+
+def test_rss_reader_preserves_optional_fields_when_missing():
+    feed = FeedParserDict(
+        {
+            "entries": [
+                {
+                    "id": "article-1",
+                    "title": "Test article",
+                    "link": "https://example.com/article-1",
+                    "description": "This is the article content.",
+                }
+            ]
+        }
+    )
+
+    with patch("newsnlp.readers.rss.feedparser.parse", return_value=feed):
+        reader = RSSReader(
+            feed_url="https://example.com/rss",
+            source_id="source-1",
+        )
+
+        articles = reader.read()
+
+    article = articles[0]
+
+    assert article.author is None
+    assert article.published_at is None
+    assert article.summary is None
+
+
+def test_rss_reader_prefers_description_over_content_and_summary():
+    feed = FeedParserDict(
+        {
+            "entries": [
+                {
+                    "id": "article-1",
+                    "title": "Test article",
+                    "link": "https://example.com/article-1",
+                    "description": "Description content.",
+                    "content": [{"value": "Content value."}],
+                    "summary": "Summary content.",
+                }
+            ]
+        }
+    )
+
+    with patch("newsnlp.readers.rss.feedparser.parse", return_value=feed):
+        reader = RSSReader(
+            feed_url="https://example.com/rss",
+            source_id="source-1",
+        )
+
+        articles = reader.read()
+
+    assert articles[0].content == "Description content."
+
+
+def test_rss_reader_prefers_content_over_summary():
+    feed = FeedParserDict(
+        {
+            "entries": [
+                {
+                    "id": "article-1",
+                    "title": "Test article",
+                    "link": "https://example.com/article-1",
+                    "content": [{"value": "Content value."}],
+                    "summary": "Summary content.",
+                }
+            ]
+        }
+    )
+
+    with patch("newsnlp.readers.rss.feedparser.parse", return_value=feed):
+        reader = RSSReader(
+            feed_url="https://example.com/rss",
+            source_id="source-1",
+        )
+
+        articles = reader.read()
+
+    assert articles[0].content == "Content value."
