@@ -1,0 +1,9 @@
+{
+    "feeds": [
+        {
+            "name": "Example",
+            "url": "https://example.com/feed.xml",
+            "enabled": false
+        }
+    ]
+}
