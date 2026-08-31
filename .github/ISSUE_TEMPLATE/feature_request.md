@@ -32,6 +32,12 @@ labels: enhancement
 - [ ] 
 
 
+## Technical Notes
+
+<!-- Add technical details, implementation considerations, architecture decisions,
+dependencies, constraints, or other relevant technical context. -->
+
+
 ## Additional context
 
-<!-- Add any other relevant information, links, screenshots, or technical notes. -->
+<!-- Add any other relevant information, links, screenshots, or context. -->

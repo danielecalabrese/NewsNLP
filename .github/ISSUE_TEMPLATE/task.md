@@ -36,6 +36,12 @@ labels: task
 - [ ] Documentation updated, if necessary
 
 
+## Technical Notes
+
+<!-- Add technical details, implementation considerations, architecture decisions,
+dependencies, constraints, or other relevant technical context. -->
+
+
 ## Additional context
 
-<!-- Add any relevant technical notes, links, or context. -->
+<!-- Add any relevant links or other context. -->
