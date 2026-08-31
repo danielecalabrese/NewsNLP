@@ -6,6 +6,7 @@ from time import struct_time
 from unittest.mock import patch
 from feedparser import FeedParserDict
 from newsnlp.readers.rss import RSSReader
+from newsnlp.models.article import Article
 
 
 def test_rss_reader_returns_articles_from_feed():
@@ -32,10 +33,12 @@ def test_rss_reader_returns_articles_from_feed():
         )
 
         articles = reader.read()
+        
 
     assert len(articles) == 1
 
     article = articles[0]
+    assert isinstance(article, Article)
 
     assert article.id == "article-1"
     assert article.source_id == "source-1"
@@ -396,3 +399,38 @@ def test_rss_reader_logs_and_skips_invalid_entry(caplog, monkeypatch):
     assert len(articles) == 1
     assert articles[0].id == "article-1"
     assert "Error parsing RSS entry article-2" in caplog.text
+
+
+def test_rss_reader_creates_one_article_per_feed_entry():
+    feed = FeedParserDict(
+        {
+            "entries": [
+                {
+                    "id": "article-1",
+                    "title": "First article",
+                    "link": "https://example.com/article-1",
+                    "description": "First article content.",
+                },
+                {
+                    "id": "article-2",
+                    "title": "Second article",
+                    "link": "https://example.com/article-2",
+                    "description": "Second article content.",
+                },
+            ],
+            "bozo": False,
+        }
+    )
+
+    with patch("newsnlp.readers.rss.feedparser.parse", return_value=feed):
+        reader = RSSReader(
+            feed_url="https://example.com/rss",
+            source_id="source-1",
+        )
+
+        articles = reader.read()
+
+    assert len(articles) == 2
+    assert all(isinstance(article, Article) for article in articles)
+    assert articles[0].id == "article-1"
+    assert articles[1].id == "article-2"
