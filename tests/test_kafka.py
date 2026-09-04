@@ -6,6 +6,7 @@ from unittest.mock import Mock
 from newsnlp.models.article import Article
 from newsnlp.models.events import ArticleCreatedEvent
 from newsnlp.kafka.producer import KafkaArticleProducer
+from newsnlp.kafka.consumer import KafkaArticleConsumer
 
 
 def create_test_event() -> ArticleCreatedEvent:
@@ -29,10 +30,10 @@ def test_kafka_article_producer_initialization():
 
     kafka_producer = KafkaArticleProducer(
         producer=producer,
-        topic="article-created",
+        topic="news.article",
     )
 
-    assert kafka_producer.topic == "article-created"
+    assert kafka_producer.topic == "news.article"
     assert kafka_producer.producer is producer
 
 
@@ -41,7 +42,7 @@ def test_kafka_article_producer_sends_event():
 
     kafka_producer = KafkaArticleProducer(
         producer=producer,
-        topic="article-created",
+        topic="news.article",
     )
 
     event = create_test_event()
@@ -52,7 +53,7 @@ def test_kafka_article_producer_sends_event():
 
     call_kwargs = producer.produce.call_args.kwargs
 
-    assert call_kwargs["topic"] == "article-created"
+    assert call_kwargs["topic"] == "news.article"
 
     payload = json.loads(call_kwargs["value"])
 
@@ -65,7 +66,7 @@ def test_kafka_article_producer_registers_delivery_callback():
 
     kafka_producer = KafkaArticleProducer(
         producer=producer,
-        topic="article-created",
+        topic="news.article",
     )
 
     event = create_test_event()
@@ -85,7 +86,7 @@ def test_kafka_article_producer_delivery_callback_raises_on_error():
 
     kafka_producer = KafkaArticleProducer(
         producer=producer,
-        topic="article-created",
+        topic="news.article",
     )
 
     with pytest.raises(RuntimeError, match="Kafka delivery failed"):
@@ -100,7 +101,7 @@ def test_kafka_article_producer_does_not_flush_after_send():
 
     kafka_producer = KafkaArticleProducer(
         producer=producer,
-        topic="article-created",
+        topic="news.article",
     )
 
     event = create_test_event()
@@ -115,9 +116,100 @@ def test_kafka_article_producer_flush():
 
     kafka_producer = KafkaArticleProducer(
         producer=producer,
-        topic="article-created",
+        topic="news.article",
     )
 
     kafka_producer.flush()
 
     producer.flush.assert_called_once()
+
+
+def test_kafka_article_consumer_initialization():
+    consumer = Mock()
+
+    kafka_consumer = KafkaArticleConsumer(
+        consumer=consumer,
+        topic="news.article",
+    )
+
+    assert kafka_consumer.topic == "news.article"
+    assert kafka_consumer.consumer is consumer
+
+
+def test_kafka_article_consumer_subscribes_to_topic():
+    consumer = Mock()
+
+    kafka_consumer = KafkaArticleConsumer(
+        consumer=consumer,
+        topic="news.article",
+    )
+
+    kafka_consumer.subscribe()
+
+    consumer.subscribe.assert_called_once_with(["news.article"])
+
+
+def test_kafka_article_consumer_consumes_event():
+    consumer = Mock()
+    message = Mock()
+
+    event = create_test_event()
+
+    message.error.return_value = None
+    message.value.return_value = event.model_dump_json().encode("utf-8")
+
+    consumer.poll.return_value = message
+
+    kafka_consumer = KafkaArticleConsumer(
+        consumer=consumer,
+        topic="news.article",
+    )
+
+    result = kafka_consumer.consume()
+
+    assert result is not None
+    assert result.article.id == "article-1"
+    assert result.article.title == "Test article"
+
+
+def test_kafka_article_consumer_returns_none_when_no_message():
+    consumer = Mock()
+    consumer.poll.return_value = None
+
+    kafka_consumer = KafkaArticleConsumer(
+        consumer=consumer,
+        topic="news.article",
+    )
+
+    result = kafka_consumer.consume()
+
+    assert result is None
+
+
+def test_kafka_article_consumer_raises_on_kafka_error():
+    consumer = Mock()
+    message = Mock()
+
+    message.error.return_value = Exception("Kafka error")
+    consumer.poll.return_value = message
+
+    kafka_consumer = KafkaArticleConsumer(
+        consumer=consumer,
+        topic="news.article",
+    )
+
+    with pytest.raises(RuntimeError, match="Kafka consumption failed"):
+        kafka_consumer.consume()
+
+
+def test_kafka_article_consumer_close():
+    consumer = Mock()
+
+    kafka_consumer = KafkaArticleConsumer(
+        consumer=consumer,
+        topic="news.article",
+    )
+
+    kafka_consumer.close()
+
+    consumer.close.assert_called_once()
