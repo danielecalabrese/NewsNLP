@@ -1,4 +1,7 @@
-from unittest.mock import patch
+from datetime import datetime, timezone
+from unittest.mock import Mock, patch
+
+from newsnlp.models.article import Article
 
 from newsnlp.cli import ingest
 from newsnlp.models.feed import FeedConfiguration
@@ -25,6 +28,58 @@ def test_ingest_reads_enabled_feeds():
         )
         reader.read.assert_called_once()
         assert result == 0
+
+
+def test_ingest_publishes_articles_to_kafka():
+    feeds = [
+        FeedConfiguration(
+            name="Test Feed",
+            url="https://example.com/feed.xml",
+            enabled=True,
+        )
+    ]
+
+    articles = [
+        Article(
+            id="article-1",
+            source_id="Test Feed",
+            title="First article",
+            url="https://example.com/1",
+            content="First article content",
+            fetched_at=datetime.now(timezone.utc),
+        ),
+        Article(
+            id="article-2",
+            source_id="Test Feed",
+            title="Second article",
+            url="https://example.com/2",
+            content="Second article content",
+            fetched_at=datetime.now(timezone.utc),
+        ),
+    ]
+
+    with (
+        patch("newsnlp.cli.RSSReader") as reader_class,
+        patch("newsnlp.cli.Producer"),
+        patch("newsnlp.cli.KafkaArticleProducer") as kafka_producer_class,
+    ):
+        reader = reader_class.return_value
+        reader.read.return_value = articles
+
+        kafka_producer = kafka_producer_class.return_value
+
+        result = ingest(feeds)
+
+    assert result == 0
+    assert kafka_producer.send.call_count == 2
+    kafka_producer.flush.assert_called_once()
+
+    first_event = kafka_producer.send.call_args_list[0].args[0]
+    second_event = kafka_producer.send.call_args_list[1].args[0]
+
+    assert first_event.article.id == "article-1"
+    assert second_event.article.id == "article-2"
+
 
 
 def test_ingest_skips_disabled_feeds():

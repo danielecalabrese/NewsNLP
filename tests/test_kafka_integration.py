@@ -9,7 +9,7 @@ from newsnlp.models.events import ArticleCreatedEvent
 
 
 BROKER = "localhost:9092"
-TOPIC = "news.article"
+TOPIC = "news.article.test"
 GROUP_ID = "newsnlp-integration-test"
 
 

@@ -1,19 +1,31 @@
 import argparse
 import json
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 
+from confluent_kafka import Producer
+
+from newsnlp.kafka.producer import KafkaArticleProducer
+from newsnlp.models.events import ArticleCreatedEvent
 from newsnlp.models.feed import FeedConfiguration
 from newsnlp.readers.rss import RSSReader
-
 
 logger = logging.getLogger(__name__)
 
 CONFIG_FILE = Path("config/feeds.json")
+KAFKA_BROKER = "localhost:9092"
+KAFKA_TOPIC = "news.article"
 
 
 def ingest(feeds: list[FeedConfiguration]) -> int:
-    """Ingest articles from enabled RSS feeds."""
+    """Ingest articles from enabled RSS feeds and publish them to Kafka."""
+
+    producer = Producer({"bootstrap.servers": KAFKA_BROKER})
+    kafka_producer = KafkaArticleProducer(
+        producer=producer,
+        topic=KAFKA_TOPIC,
+    )
 
     for feed in feeds:
         if not feed.enabled:
@@ -25,10 +37,20 @@ def ingest(feeds: list[FeedConfiguration]) -> int:
         )
 
         try:
-            reader.read()
+            articles = reader.read()
+
+            for article in articles:
+                event = ArticleCreatedEvent(
+                    article=article,
+                    created_at=datetime.now(timezone.utc),
+                )
+                kafka_producer.send(event)
+
         except ValueError:
             logger.error("Error ingesting feed: %s", feed.name)
             return 1
+
+    kafka_producer.flush()
 
     return 0
 
