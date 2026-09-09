@@ -4,7 +4,7 @@ import certifi
 import requests
 from datetime import datetime, timezone
 from newsnlp.models.article import Article
-
+from newsnlp.processing.text_preprocessor import TextPreprocessor
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +15,7 @@ class RSSReader:
 
         self.feed_url = feed_url
         self.source_id = source_id
+        self.preprocessor = TextPreprocessor()
 
     def read(self) -> list[Article]:
         """Read the RSS feed and return its entries as Article objects."""
@@ -61,6 +62,11 @@ class RSSReader:
         """Convert a single RSS entry into an Article object."""
 
         content = self._parse_content(entry)
+
+        if not content:
+            return None
+
+        content = self.preprocessor.preprocess(content)
 
         if not content:
             return None

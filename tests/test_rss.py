@@ -504,3 +504,35 @@ def test_rss_reader_raises_error_for_http_failure(monkeypatch):
 
     with pytest.raises(RuntimeError, match="Connection failed"):
         reader.read()
+
+
+def test_rss_reader_preprocesses_article_content(mock_response):
+    feed = FeedParserDict(
+        {
+            "entries": [
+                {
+                    "id": "article-1",
+                    "title": "Test article",
+                    "link": "https://example.com/article-1",
+                    "description": (
+                        "<p>This is <strong>news</strong>.</p>"
+                        "<p>This is&nbsp;another sentence.</p>"
+                    ),
+                }
+            ],
+            "bozo": False,
+        }
+    )
+
+    with patch("newsnlp.readers.rss.feedparser.parse", return_value=feed):
+        reader = RSSReader(
+            feed_url="https://example.com/rss",
+            source_id="source-1",
+        )
+
+        articles = reader.read()
+
+    assert len(articles) == 1
+    assert articles[0].content == (
+        "This is news. This is another sentence."
+    )
