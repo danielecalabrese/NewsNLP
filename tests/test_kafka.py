@@ -130,6 +130,7 @@ def test_kafka_article_consumer_initialization():
     kafka_consumer = KafkaArticleConsumer(
         consumer=consumer,
         topic="news.article",
+        event_model=ArticleCreatedEvent,
     )
 
     assert kafka_consumer.topic == "news.article"
@@ -142,6 +143,7 @@ def test_kafka_article_consumer_subscribes_to_topic():
     kafka_consumer = KafkaArticleConsumer(
         consumer=consumer,
         topic="news.article",
+        event_model=ArticleCreatedEvent,
     )
 
     kafka_consumer.subscribe()
@@ -163,6 +165,7 @@ def test_kafka_article_consumer_consumes_event():
     kafka_consumer = KafkaArticleConsumer(
         consumer=consumer,
         topic="news.article",
+        event_model=ArticleCreatedEvent,
     )
 
     result = kafka_consumer.consume()
@@ -179,6 +182,7 @@ def test_kafka_article_consumer_returns_none_when_no_message():
     kafka_consumer = KafkaArticleConsumer(
         consumer=consumer,
         topic="news.article",
+        event_model=ArticleCreatedEvent,
     )
 
     result = kafka_consumer.consume()
@@ -196,6 +200,7 @@ def test_kafka_article_consumer_raises_on_kafka_error():
     kafka_consumer = KafkaArticleConsumer(
         consumer=consumer,
         topic="news.article",
+        event_model=ArticleCreatedEvent,
     )
 
     with pytest.raises(RuntimeError, match="Kafka consumption failed"):
@@ -208,6 +213,7 @@ def test_kafka_article_consumer_close():
     kafka_consumer = KafkaArticleConsumer(
         consumer=consumer,
         topic="news.article",
+        event_model=ArticleCreatedEvent,
     )
 
     kafka_consumer.close()

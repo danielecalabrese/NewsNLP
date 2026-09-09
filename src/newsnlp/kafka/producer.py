@@ -1,6 +1,5 @@
 from confluent_kafka import Producer
-
-from newsnlp.models.events import ArticleCreatedEvent
+from pydantic import BaseModel
 
 
 class KafkaArticleProducer:
@@ -8,7 +7,7 @@ class KafkaArticleProducer:
         self.producer = producer
         self.topic = topic
 
-    def send(self, event: ArticleCreatedEvent) -> None:
+    def send(self, event: BaseModel) -> None:
         payload = event.model_dump_json()
 
         self.producer.produce(

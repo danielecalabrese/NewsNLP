@@ -49,6 +49,7 @@ def test_producer_consumer_integration():
     kafka_consumer = KafkaArticleConsumer(
         consumer=consumer,
         topic=TOPIC,
+        event_model=ArticleCreatedEvent,
     )
 
     kafka_consumer.subscribe()
