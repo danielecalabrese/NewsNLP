@@ -68,3 +68,58 @@ def test_process_article_normalizes_whitespace():
     processed = processor.process(article)
 
     assert processed.content == "First sentence. Second sentence."
+
+
+def test_process_article_sets_processed_at():
+    article = Article(
+        id="article-123",
+        source_id="ansa",
+        title="Test article",
+        url="https://example.com/article",
+        content="Some content.",
+        fetched_at=datetime.now(timezone.utc),
+    )
+
+    before = datetime.now(timezone.utc)
+
+    processor = ArticleProcessor()
+    processed = processor.process(article)
+
+    after = datetime.now(timezone.utc)
+
+    assert before <= processed.processed_at <= after
+    assert processed.processed_at.tzinfo == timezone.utc
+
+
+def test_process_article_preserves_normalized_content():
+    article = Article(
+        id="article-123",
+        source_id="ansa",
+        title="Test article",
+        url="https://example.com/article",
+        content="This is already normalized.",
+        fetched_at=datetime.now(timezone.utc),
+    )
+
+    processor = ArticleProcessor()
+
+    processed = processor.process(article)
+
+    assert processed.content == article.content
+
+
+def test_process_article_removes_leading_and_trailing_whitespace():
+    article = Article(
+        id="article-123",
+        source_id="ansa",
+        title="Test article",
+        url="https://example.com/article",
+        content="     First sentence.     Second sentence.     ",
+        fetched_at=datetime.now(timezone.utc),
+    )
+
+    processor = ArticleProcessor()
+
+    processed = processor.process(article)
+
+    assert processed.content == "First sentence. Second sentence."
