@@ -8,7 +8,7 @@ from newsnlp.models.processed_article import ProcessedArticle
 
 def test_processed_article_creation():
     article = ProcessedArticle(
-        id="article-1",
+        article_id="article-1",
         source_id="ansa",
         title="Test article",
         url="https://example.com/article",
@@ -20,7 +20,7 @@ def test_processed_article_creation():
         sentiment="positive",
     )
 
-    assert article.id == "article-1"
+    assert article.article_id == "article-1"
     assert article.source_id == "ansa"
     assert article.title == "Test article"
     assert article.keywords == ["news", "technology"]
@@ -30,7 +30,7 @@ def test_processed_article_creation():
 
 def test_processed_article_optional_fields():
     article = ProcessedArticle(
-        id="article-1",
+        article_id="article-1",
         source_id="ansa",
         title="Test article",
         url="https://example.com/article",
@@ -48,10 +48,10 @@ def test_processed_article_optional_fields():
     assert article.entities == []
 
 
-def test_processed_article_requires_valid_id():
+def test_processed_article_requires_valid_article_id():
     with pytest.raises(ValidationError):
         ProcessedArticle(
-            id="",
+            article_id="",
             source_id="ansa",
             title="Test article",
             url="https://example.com/article",
@@ -64,7 +64,7 @@ def test_processed_article_requires_valid_id():
 def test_processed_article_requires_content():
     with pytest.raises(ValidationError):
         ProcessedArticle(
-            id="article-1",
+            article_id="article-1",
             source_id="ansa",
             title="Test article",
             url="https://example.com/article",
@@ -79,7 +79,7 @@ def test_processed_article_serialization():
     processed_at = datetime.now(timezone.utc)
 
     article = ProcessedArticle(
-        id="article-1",
+        article_id="article-1",
         source_id="ansa",
         title="Test article",
         url="https://example.com/article",
@@ -93,7 +93,7 @@ def test_processed_article_serialization():
 
     data = article.model_dump()
 
-    assert data["id"] == "article-1"
+    assert data["article_id"] == "article-1"
     assert data["keywords"] == ["news"]
     assert data["entities"] == ["OpenAI"]
     assert data["processed_at"] == processed_at

@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 class ProcessedArticle(BaseModel):
 
-    id: str = Field(min_length=1)
+    article_id: str = Field(min_length=1)
 
     source_id: str = Field(min_length=1)
 
