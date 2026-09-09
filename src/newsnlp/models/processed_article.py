@@ -13,12 +13,22 @@ class ProcessedArticle(BaseModel):
 
     url: str = Field(min_length=1)
 
+    author: str | None = None
+
+    published_at: datetime | None = None
+
     content: str = Field(min_length=1)
 
     summary: str | None = None
 
     language: str | None = None
 
-    published_at: datetime | None = None
+    fetched_at: datetime
 
     processed_at: datetime
+
+    keywords: list[str] = Field(default_factory=list)
+
+    entities: list[str] = Field(default_factory=list)
+
+    sentiment: str | None = None

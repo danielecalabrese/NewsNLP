@@ -28,6 +28,8 @@ def test_process_article():
     assert processed.content == "This is an article. It contains some text."
     assert processed.published_at == article.published_at
     assert processed.processed_at is not None
+    assert processed.author == article.author
+    assert processed.fetched_at == article.fetched_at
 
 
 def test_process_article_preserves_optional_fields():

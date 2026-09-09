@@ -6,69 +6,94 @@ from pydantic import ValidationError
 from newsnlp.models.processed_article import ProcessedArticle
 
 
-@pytest.fixture
-def valid_processed_article():
-    return {
-        "article_id": "article-123",
-        "source_id": "ansa",
-        "title": "Test article",
-        "url": "https://example.com/article",
-        "content": "This is the processed article content.",
-        "summary": "Test summary",
-        "language": "en",
-        "published_at": datetime(2026, 9, 9, 10, 0, tzinfo=timezone.utc),
-        "processed_at": datetime(2026, 9, 9, 10, 5, tzinfo=timezone.utc),
-    }
+def test_processed_article_creation():
+    article = ProcessedArticle(
+        article_id="article-1",
+        source_id="ansa",
+        title="Test article",
+        url="https://example.com/article",
+        content="Article content",
+        fetched_at=datetime.now(timezone.utc),
+        processed_at=datetime.now(timezone.utc),
+        keywords=["news", "technology"],
+        entities=["OpenAI"],
+        sentiment="positive",
+    )
 
-
-def test_processed_article_creation(valid_processed_article):
-    article = ProcessedArticle(**valid_processed_article)
-
-    assert article.article_id == "article-123"
+    assert article.article_id == "article-1"
     assert article.source_id == "ansa"
     assert article.title == "Test article"
-    assert article.url == "https://example.com/article"
-    assert article.content == "This is the processed article content."
-    assert article.summary == "Test summary"
-    assert article.language == "en"
-    assert article.published_at == valid_processed_article["published_at"]
-    assert article.processed_at == valid_processed_article["processed_at"]
+    assert article.keywords == ["news", "technology"]
+    assert article.entities == ["OpenAI"]
+    assert article.sentiment == "positive"
 
 
 def test_processed_article_optional_fields():
     article = ProcessedArticle(
-        article_id="article-123",
+        article_id="article-1",
         source_id="ansa",
         title="Test article",
         url="https://example.com/article",
-        content="Processed content.",
+        content="Article content",
+        fetched_at=datetime.now(timezone.utc),
         processed_at=datetime.now(timezone.utc),
     )
 
+    assert article.author is None
+    assert article.published_at is None
     assert article.summary is None
     assert article.language is None
-    assert article.published_at is None
+    assert article.sentiment is None
+    assert article.keywords == []
+    assert article.entities == []
 
 
-@pytest.mark.parametrize(
-    "field",
-    ["article_id", "source_id", "title", "url", "content", "processed_at"],
-)
-def test_processed_article_required_fields(valid_processed_article, field):
-    valid_processed_article.pop(field)
-
+def test_processed_article_requires_valid_article_id():
     with pytest.raises(ValidationError):
-        ProcessedArticle(**valid_processed_article)
+        ProcessedArticle(
+            article_id="",
+            source_id="ansa",
+            title="Test article",
+            url="https://example.com/article",
+            content="Article content",
+            fetched_at=datetime.now(timezone.utc),
+            processed_at=datetime.now(timezone.utc),
+        )
 
 
-@pytest.mark.parametrize(
-    "field",
-    ["article_id", "source_id", "title", "url", "content"],
-)
-def test_processed_article_string_fields_cannot_be_empty(
-    valid_processed_article, field
-):
-    valid_processed_article[field] = ""
-
+def test_processed_article_requires_content():
     with pytest.raises(ValidationError):
-        ProcessedArticle(**valid_processed_article)
+        ProcessedArticle(
+            article_id="article-1",
+            source_id="ansa",
+            title="Test article",
+            url="https://example.com/article",
+            content="",
+            fetched_at=datetime.now(timezone.utc),
+            processed_at=datetime.now(timezone.utc),
+        )
+
+
+def test_processed_article_serialization():
+    fetched_at = datetime.now(timezone.utc)
+    processed_at = datetime.now(timezone.utc)
+
+    article = ProcessedArticle(
+        article_id="article-1",
+        source_id="ansa",
+        title="Test article",
+        url="https://example.com/article",
+        content="Article content",
+        fetched_at=fetched_at,
+        processed_at=processed_at,
+        keywords=["news"],
+        entities=["OpenAI"],
+        sentiment="positive",
+    )
+
+    data = article.model_dump()
+
+    assert data["article_id"] == "article-1"
+    assert data["keywords"] == ["news"]
+    assert data["entities"] == ["OpenAI"]
+    assert data["processed_at"] == processed_at
