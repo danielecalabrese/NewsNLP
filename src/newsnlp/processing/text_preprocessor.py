@@ -14,6 +14,7 @@ class TextPreprocessor:
         text = unescape(text)
         text = self._normalize_whitespace(text)
         text = self._normalize_special_characters(text)
+        text = text.lower()
 
         return text.strip()
 

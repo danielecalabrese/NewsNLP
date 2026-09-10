@@ -8,7 +8,7 @@ def test_remove_html_tags():
 
     result = preprocessor.preprocess(text)
 
-    assert result == "This is news."
+    assert result == "this is news."
 
 
 def test_decode_html_entities():
@@ -18,7 +18,7 @@ def test_decode_html_entities():
 
     result = preprocessor.preprocess(text)
 
-    assert result == "This is a news article & example."
+    assert result == "this is a news article & example."
 
 
 def test_normalize_whitespace():
@@ -28,7 +28,7 @@ def test_normalize_whitespace():
 
     result = preprocessor.preprocess(text)
 
-    assert result == "This is a news article."
+    assert result == "this is a news article."
 
 
 def test_normalize_special_characters():
@@ -38,7 +38,7 @@ def test_normalize_special_characters():
 
     result = preprocessor.preprocess(text)
 
-    assert result == "'News' - today - important."
+    assert result == "'news' - today - important."
 
 
 def test_strip_leading_and_trailing_whitespace():
@@ -48,7 +48,7 @@ def test_strip_leading_and_trailing_whitespace():
 
     result = preprocessor.preprocess(text)
 
-    assert result == "This is a news article."
+    assert result == "this is a news article."
 
 
 def test_empty_text_returns_empty_string():
@@ -78,6 +78,16 @@ def test_preserve_meaningful_content():
     result = preprocessor.preprocess(text)
 
     assert result == (
-        "Breaking news: New elections announced. "
-        "The election will take place on Monday."
+        "breaking news: new elections announced. "
+        "the election will take place on monday."
     )
+
+
+def test_lowercase_text():
+    preprocessor = TextPreprocessor()
+
+    text = "Breaking NEWS: New Election Results."
+
+    result = preprocessor.preprocess(text)
+
+    assert result == "breaking news: new election results."

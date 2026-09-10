@@ -58,7 +58,7 @@ def test_rss_reader_returns_articles_from_feed(mock_response):
     assert article.title == "Test article"
     assert article.url == "https://example.com/article-1"
     assert article.author == "John Doe"
-    assert article.content == "This is the article content."
+    assert article.content == "this is the article content."
     assert article.fetched_at <= datetime.now(timezone.utc)
 
 
@@ -157,7 +157,7 @@ def test_rss_reader_uses_content_when_description_is_missing(mock_response):
 
         articles = reader.read()
 
-    assert articles[0].content == "This is the article content."
+    assert articles[0].content == "this is the article content."
 
 def test_rss_reader_uses_summary_when_content_is_missing(mock_response):
     feed = FeedParserDict(
@@ -181,7 +181,7 @@ def test_rss_reader_uses_summary_when_content_is_missing(mock_response):
 
         articles = reader.read()
 
-    assert articles[0].content == "This is the article summary."
+    assert articles[0].content == "this is the article summary."
 
 def test_rss_reader_skips_entries_without_content(mock_response):
     feed = FeedParserDict(
@@ -283,7 +283,7 @@ def test_rss_reader_prefers_description_over_content_and_summary(mock_response):
 
         articles = reader.read()
 
-    assert articles[0].content == "Description content."
+    assert articles[0].content == "description content."
 
 
 def test_rss_reader_prefers_content_over_summary(mock_response):
@@ -309,7 +309,7 @@ def test_rss_reader_prefers_content_over_summary(mock_response):
 
         articles = reader.read()
 
-    assert articles[0].content == "Content value."
+    assert articles[0].content == "content value."
 
 
 def test_rss_reader_logs_error_for_invalid_feed(caplog, monkeypatch, mock_response):
@@ -534,5 +534,5 @@ def test_rss_reader_preprocesses_article_content(mock_response):
 
     assert len(articles) == 1
     assert articles[0].content == (
-        "This is news. This is another sentence."
+        "this is news. this is another sentence."
     )
