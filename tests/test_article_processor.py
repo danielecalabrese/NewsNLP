@@ -26,6 +26,7 @@ def test_process_article():
     assert processed.title == article.title
     assert processed.url == article.url
     assert processed.content == "This is an article. It contains some text."
+    assert processed.language == "en"
     assert processed.published_at == article.published_at
     assert processed.processed_at is not None
     assert processed.author == article.author
@@ -38,9 +39,8 @@ def test_process_article_preserves_optional_fields():
         source_id="ansa",
         title="Test article",
         url="https://example.com/article",
-        content="Some content.",
+        content="This is a test article written in English.",
         summary="Test summary",
-        language="en",
         published_at=datetime(2026, 9, 9, 10, 0, tzinfo=timezone.utc),
         fetched_at=datetime(2026, 9, 9, 10, 5, tzinfo=timezone.utc),
     )
@@ -50,7 +50,41 @@ def test_process_article_preserves_optional_fields():
     processed = processor.process(article)
 
     assert processed.summary == article.summary
-    assert processed.language == article.language
+    assert processed.language == "en"
+
+
+def test_process_article_detects_italian_language():
+    article = Article(
+        id="article-123",
+        source_id="ansa",
+        title="Articolo di prova",
+        url="https://example.com/article",
+        content="Il governo ha annunciato nuove elezioni per il prossimo lunedì.",
+        fetched_at=datetime.now(timezone.utc),
+    )
+
+    processor = ArticleProcessor()
+
+    processed = processor.process(article)
+
+    assert processed.language == "it"
+
+
+def test_process_article_detects_english_language():
+    article = Article(
+        id="article-123",
+        source_id="bbc",
+        title="Test article",
+        url="https://example.com/article",
+        content="The government announced new elections for next Monday.",
+        fetched_at=datetime.now(timezone.utc),
+    )
+
+    processor = ArticleProcessor()
+
+    processed = processor.process(article)
+
+    assert processed.language == "en"
 
 
 def test_process_article_normalizes_whitespace():
