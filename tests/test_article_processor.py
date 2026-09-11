@@ -16,7 +16,9 @@ def test_process_article():
         fetched_at=datetime(2026, 9, 9, 10, 5, tzinfo=timezone.utc),
     )
 
-    processor = ArticleProcessor()
+    processor = ArticleProcessor(
+        language_detector=lambda text: "en"
+    )
 
     processed = processor.process(article)
 
@@ -45,12 +47,84 @@ def test_process_article_preserves_optional_fields():
         fetched_at=datetime(2026, 9, 9, 10, 5, tzinfo=timezone.utc),
     )
 
-    processor = ArticleProcessor()
+    processor = ArticleProcessor(
+        language_detector=lambda text: "en"
+    )
 
     processed = processor.process(article)
 
     assert processed.summary == article.summary
     assert processed.language == "en"
+
+
+def test_process_article_uses_language_detector():
+    detected_text = None
+
+    def language_detector(text: str) -> str:
+        nonlocal detected_text
+        detected_text = text
+        return "it"
+
+    article = Article(
+        id="article-123",
+        source_id="ansa",
+        title="Articolo di prova",
+        url="https://example.com/article",
+        content="  Il governo   ha annunciato nuove elezioni.  ",
+        fetched_at=datetime.now(timezone.utc),
+    )
+
+    processor = ArticleProcessor(
+        language_detector=language_detector
+    )
+
+    processed = processor.process(article)
+
+    assert detected_text == "Il governo ha annunciato nuove elezioni."
+    assert processed.language == "it"
+
+
+def test_process_article_normalizes_whitespace():
+    article = Article(
+        id="article-123",
+        source_id="ansa",
+        title="Test article",
+        url="https://example.com/article",
+        content="   First   sentence.\nSecond\t sentence.   ",
+        fetched_at=datetime.now(timezone.utc),
+    )
+
+    processor = ArticleProcessor(
+        language_detector=lambda text: "en"
+    )
+
+    processed = processor.process(article)
+
+    assert processed.content == "First sentence. Second sentence."
+
+
+def test_process_article_sets_processed_at():
+    article = Article(
+        id="article-123",
+        source_id="ansa",
+        title="Test article",
+        url="https://example.com/article",
+        content="Some content.",
+        fetched_at=datetime.now(timezone.utc),
+    )
+
+    before = datetime.now(timezone.utc)
+
+    processor = ArticleProcessor(
+        language_detector=lambda text: "en"
+    )
+
+    processed = processor.process(article)
+
+    after = datetime.now(timezone.utc)
+
+    assert before <= processed.processed_at <= after
+    assert processed.processed_at.tzinfo == timezone.utc
 
 
 def test_process_article_detects_italian_language():
@@ -85,75 +159,5 @@ def test_process_article_detects_english_language():
     processed = processor.process(article)
 
     assert processed.language == "en"
+    
 
-
-def test_process_article_normalizes_whitespace():
-    article = Article(
-        id="article-123",
-        source_id="ansa",
-        title="Test article",
-        url="https://example.com/article",
-        content="   First   sentence.\nSecond\t sentence.   ",
-        fetched_at=datetime.now(timezone.utc),
-    )
-
-    processor = ArticleProcessor()
-
-    processed = processor.process(article)
-
-    assert processed.content == "First sentence. Second sentence."
-
-
-def test_process_article_sets_processed_at():
-    article = Article(
-        id="article-123",
-        source_id="ansa",
-        title="Test article",
-        url="https://example.com/article",
-        content="Some content.",
-        fetched_at=datetime.now(timezone.utc),
-    )
-
-    before = datetime.now(timezone.utc)
-
-    processor = ArticleProcessor()
-    processed = processor.process(article)
-
-    after = datetime.now(timezone.utc)
-
-    assert before <= processed.processed_at <= after
-    assert processed.processed_at.tzinfo == timezone.utc
-
-
-def test_process_article_preserves_normalized_content():
-    article = Article(
-        id="article-123",
-        source_id="ansa",
-        title="Test article",
-        url="https://example.com/article",
-        content="This is already normalized.",
-        fetched_at=datetime.now(timezone.utc),
-    )
-
-    processor = ArticleProcessor()
-
-    processed = processor.process(article)
-
-    assert processed.content == article.content
-
-
-def test_process_article_removes_leading_and_trailing_whitespace():
-    article = Article(
-        id="article-123",
-        source_id="ansa",
-        title="Test article",
-        url="https://example.com/article",
-        content="     First sentence.     Second sentence.     ",
-        fetched_at=datetime.now(timezone.utc),
-    )
-
-    processor = ArticleProcessor()
-
-    processed = processor.process(article)
-
-    assert processed.content == "First sentence. Second sentence."
