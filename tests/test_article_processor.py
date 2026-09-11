@@ -161,3 +161,77 @@ def test_process_article_detects_english_language():
     assert processed.language == "en"
     
 
+class FakeKeywordExtractor:
+
+    def extract(self, text: str) -> list[str]:
+        return ["government", "elections"]
+
+
+class FakeSentimentAnalyzer:
+
+    def analyze(self, text: str) -> str:
+        return "positive"
+    
+
+def test_process_article_integrates_nlp_components():
+    article = Article(
+        id="article-123",
+        source_id="ansa",
+        title="Test article",
+        url="https://example.com/article",
+        content="  The government   announced new elections.  ",
+        fetched_at=datetime.now(timezone.utc),
+    )
+
+    processor = ArticleProcessor(
+        language_detector=lambda text: "en",
+        keyword_extractor=FakeKeywordExtractor(),
+        sentiment_analyzer=FakeSentimentAnalyzer(),
+    )
+
+    processed = processor.process(article)
+
+    assert processed.language == "en"
+    assert processed.keywords == ["government", "elections"]
+    assert processed.sentiment == "positive"
+
+
+def test_process_article_passes_normalized_content_to_nlp_components():
+    received_keyword_text = None
+    received_sentiment_text = None
+
+    class KeywordExtractorSpy:
+
+        def extract(self, text: str) -> list[str]:
+            nonlocal received_keyword_text
+            received_keyword_text = text
+            return ["test"]
+
+    class SentimentAnalyzerSpy:
+
+        def analyze(self, text: str) -> str:
+            nonlocal received_sentiment_text
+            received_sentiment_text = text
+            return "neutral"
+
+    article = Article(
+        id="article-123",
+        source_id="ansa",
+        title="Test article",
+        url="https://example.com/article",
+        content="  This   is   a test.  ",
+        fetched_at=datetime.now(timezone.utc),
+    )
+
+    processor = ArticleProcessor(
+        language_detector=lambda text: "en",
+        keyword_extractor=KeywordExtractorSpy(),
+        sentiment_analyzer=SentimentAnalyzerSpy(),
+    )
+
+    processed = processor.process(article)
+
+    assert received_keyword_text == "This is a test."
+    assert received_sentiment_text == "This is a test."
+    assert processed.keywords == ["test"]
+    assert processed.sentiment == "neutral"
