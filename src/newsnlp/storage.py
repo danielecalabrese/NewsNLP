@@ -15,3 +15,13 @@ class ArticleStorage(ABC):
     def get(self, article_id: str) -> ProcessedArticle | None:
         """Retrieve a processed article by its ID."""
         raise NotImplementedError
+
+    @abstractmethod
+    def delete(self, article_id: str) -> None:
+        """Delete a processed article by its ID."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def exists(self, article_id: str) -> bool:
+        """Check whether a processed article exists."""
+        raise NotImplementedError
