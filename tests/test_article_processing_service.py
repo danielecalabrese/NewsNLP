@@ -85,5 +85,33 @@ def test_process_and_publish_processes_article_before_publishing():
     processor.process.assert_called_once_with(article)
     producer.send.assert_called_once()
 
-    processor.process.assert_called_once()
+
+class FakeStorage:
+
+    def __init__(self):
+        self.saved_articles = []
+
+    def save(self, article: ProcessedArticle) -> None:
+        self.saved_articles.append(article)
+
+
+def test_process_and_publish_saves_processed_article():
+    article = create_article()
+
+    storage = FakeStorage()
+    processor = ArticleProcessor(
+        language_detector=lambda text: "en",
+        storage=storage,
+    )
+    producer = Mock(spec=KafkaArticleProducer)
+
+    service = ArticleProcessingService(
+        processor=processor,
+        producer=producer,
+    )
+
+    result = service.process_and_publish(article)
+
+    assert len(storage.saved_articles) == 1
+    assert storage.saved_articles[0] == result
     producer.send.assert_called_once()

@@ -235,3 +235,35 @@ def test_process_article_passes_normalized_content_to_nlp_components():
     assert received_sentiment_text == "This is a test."
     assert processed.keywords == ["test"]
     assert processed.sentiment == "neutral"
+
+
+class FakeStorage:
+
+    def __init__(self):
+        self.saved_articles = []
+
+    def save(self, article: ProcessedArticle) -> None:
+        self.saved_articles.append(article)
+
+
+def test_process_article_saves_processed_article():
+    article = Article(
+        id="article-123",
+        source_id="ansa",
+        title="Test article",
+        url="https://example.com/article",
+        content="  The government   announced new elections.  ",
+        fetched_at=datetime.now(timezone.utc),
+    )
+
+    storage = FakeStorage()
+
+    processor = ArticleProcessor(
+        language_detector=lambda text: "en",
+        storage=storage,
+    )
+
+    processed = processor.process(article)
+
+    assert len(storage.saved_articles) == 1
+    assert storage.saved_articles[0] == processed
