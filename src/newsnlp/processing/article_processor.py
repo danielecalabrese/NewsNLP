@@ -7,6 +7,7 @@ from newsnlp.models.article import Article
 from newsnlp.models.processed_article import ProcessedArticle
 from newsnlp.nlp.keyword_extractor import KeywordExtractor
 from newsnlp.nlp.sentiment_analyzer import SentimentAnalyzer
+from newsnlp.storage import ArticleStorage
 
 
 class ArticleProcessor:
@@ -16,10 +17,12 @@ class ArticleProcessor:
         language_detector: Callable[[str], str] = detect,
         keyword_extractor: KeywordExtractor | None = None,
         sentiment_analyzer: SentimentAnalyzer | None = None,
+        storage: ArticleStorage | None = None,
     ):
         self.language_detector = language_detector
         self.keyword_extractor = keyword_extractor
         self.sentiment_analyzer = sentiment_analyzer
+        self.storage = storage
 
     def process(self, article: Article) -> ProcessedArticle:
         normalized_content = " ".join(article.content.split())
@@ -37,7 +40,7 @@ class ArticleProcessor:
             else None
         )
 
-        return ProcessedArticle(
+        processed_article = ProcessedArticle(
             article_id=article.id,
             source_id=article.source_id,
             title=article.title,
@@ -52,3 +55,8 @@ class ArticleProcessor:
             keywords=keywords,
             sentiment=sentiment,
         )
+
+        if self.storage:
+            self.storage.save(processed_article)
+
+        return processed_article
