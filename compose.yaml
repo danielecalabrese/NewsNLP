@@ -23,3 +23,16 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
 
       KAFKA_NUM_PARTITIONS: 3
+
+  mongodb:
+    image: mongo:7.0
+    container_name: newsnlp-mongodb
+
+    ports:
+      - "27017:27017"
+
+    volumes:
+      - mongodb_data:/data/db
+
+volumes:
+  mongodb_data:
