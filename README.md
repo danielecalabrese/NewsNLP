@@ -33,14 +33,24 @@ Kafka Topic
     ▼
 Kafka Consumer
     │
-    ├──► Article Processing
+    ▼
+Article Processing
     │
-    ├──► NLP
+    ▼
+NLP
     │
-    └──► Storage & Analytics
+    ▼
+ProcessedArticleEvent
+    │
+    ▼
+MongoDB Storage
 ```
 
-Articles collected by the RSS Reader are converted into `ArticleCreatedEvent` events and published to Kafka. Consumers can then subscribe to the corresponding topic and process the events independently.
+Articles collected by the RSS Reader are converted into `ArticleCreatedEvent` events and published to Kafka.
+
+Downstream consumers process the events through the article processing and NLP pipeline. Processed articles are represented by `ProcessedArticle` and can be published as `ProcessedArticleEvent` events before being persisted to MongoDB.
+
+The processing and storage components are decoupled through interfaces and event models, allowing individual components to be tested independently.
 
 ## Event Streaming
 
@@ -60,35 +70,82 @@ The Kafka infrastructure can be started with:
 docker compose up -d
 ```
 
-To stop the Kafka infrastructure:
+To stop the infrastructure:
 
 ```bash
 docker compose down
 ```
 
-### Event Model
+### Event Models
 
-The main event currently used by the pipeline is `ArticleCreatedEvent`.
+The pipeline currently uses two main event models:
 
-The event represents the creation of a new article and contains the information required by downstream consumers to process it.
+* `ArticleCreatedEvent` represents the creation of a new article and is published after RSS ingestion.
+* `ProcessedArticleEvent` represents an article after processing and NLP enrichment.
 
-The event is serialized before being published to Kafka by the `KafkaArticleProducer`.
-
-The `KafkaArticleConsumer` is responsible for consuming these events from the Kafka topic and deserializing them back into application objects.
+Events are serialized before being published to Kafka and deserialized by downstream consumers.
 
 ### Producer and Consumer
 
-The Kafka producer publishes `ArticleCreatedEvent` messages to the configured Kafka topic.
+The Kafka producer publishes events to the configured Kafka topic.
 
-The consumer subscribes to the same topic and retrieves the published events.
+The consumer subscribes to the topic and retrieves published events.
 
 Producer and consumer logic are implemented as separate components so that the ingestion and processing stages remain decoupled.
 
+## Article Processing and NLP
+
+The article processing pipeline normalizes article content and enriches processed articles with NLP information.
+
+The current NLP layer includes:
+
+* Text preprocessing and normalization
+* Language detection
+* Keyword extraction
+* Sentiment analysis
+
+Processed articles are represented by the `ProcessedArticle` model and contain the original article information together with the results of the processing and NLP stages.
+
+## Storage
+
+Processed articles are persisted using a storage abstraction defined by the `ArticleStorage` interface.
+
+The interface currently provides operations for:
+
+* Saving an article
+* Retrieving an article
+* Deleting an article
+* Checking whether an article exists
+
+MongoDB is the current storage implementation through `MongoArticleStorage`.
+
+MongoDB is configured to run locally using Docker Compose.
+
+### MongoDB Configuration
+
+- **Host:** `localhost`
+- **Port:** `27017`
+- **Image:** `mongo:7.0`
+
+The default MongoDB connection is configured for the local Docker environment.
+
+MongoDB data is persisted using a Docker volume so that the database state can survive container restarts.
+
 ## Testing
 
-The Kafka producer and consumer are covered by unit tests.
+The project includes unit tests and integration tests covering the main pipeline components.
 
-The tests use mocks for the Kafka client, allowing the producer and consumer logic to be tested without requiring a running Kafka broker.
+Unit tests cover:
+
+* RSS ingestion
+* Kafka producer and consumer logic
+* Article processing
+* NLP components
+* Event models
+* Storage interfaces
+* MongoDB storage implementation
+
+Integration tests verify the interaction with external infrastructure such as MongoDB.
 
 Run the complete test suite with:
 
@@ -96,16 +153,23 @@ Run the complete test suite with:
 pytest
 ```
 
+For the MongoDB integration tests, the Docker infrastructure must be running:
+
+```bash
+docker compose up -d
+pytest tests/storage/test_mongodb_integration.py -v
+```
+
 ## Roadmap
 
-* [x] M0 – Project Setup
-* [x] M1 – RSS Ingestion
-* [ ] M2 – Kafka Pipeline
-* [ ] M3 – Article Processing
-* [ ] M4 – NLP Layer
-* [ ] M5 – Storage
-* [ ] M6 – Analytics
-* [ ] M7 – Dashboard / API
+* [x] M0 - Project Setup
+* [x] M1 - RSS Ingestion
+* [x] M2 - Kafka Pipeline
+* [x] M3 - Article Processing
+* [x] M4 - NLP Layer
+* [x] M5 - Storage
+* [ ] M6 - Analytics
+* [ ] M7 - Dashboard / API
 
 ## Getting Started
 
@@ -123,9 +187,11 @@ Clone the repository and create the Python virtual environment:
 
 ```bash
 git clone <repository-url>
+
 cd NewsNLP
 
 python3 -m venv .venv
+
 source .venv/bin/activate
 ```
 
@@ -135,7 +201,7 @@ Install the project dependencies:
 pip install -r requirements.txt
 ```
 
-Start the Kafka infrastructure:
+Start the local infrastructure:
 
 ```bash
 docker compose up -d
@@ -147,8 +213,10 @@ Run the test suite to verify the installation:
 pytest
 ```
 
-More detailed usage instructions will be added as the project evolves.
+The Docker Compose configuration currently provides the Kafka and MongoDB infrastructure required by the project.
 
 ## Project Status
 
 🚧 Work in progress
+
+M0 through M5 are currently completed. The next planned milestone is M6 - Analytics.
