@@ -116,6 +116,38 @@ def test_ingest_returns_error_when_feed_read_fails():
         assert result == 1
 
 
+def test_ingest_continues_after_a_feed_read_fails():
+    feeds = [
+        FeedConfiguration(
+            name="Broken Feed",
+            url="https://example.com/broken.xml",
+            enabled=True,
+        ),
+        FeedConfiguration(
+            name="Working Feed",
+            url="https://example.com/working.xml",
+            enabled=True,
+        ),
+    ]
+
+    with (
+        patch("newsnlp.cli.RSSReader") as reader_class,
+        patch("newsnlp.cli.Producer"),
+        patch("newsnlp.cli.KafkaArticleProducer") as kafka_producer_class,
+    ):
+        broken_reader = Mock()
+        broken_reader.read.side_effect = ValueError("Invalid RSS feed")
+        working_reader = Mock()
+        working_reader.read.return_value = []
+        reader_class.side_effect = [broken_reader, working_reader]
+
+        result = ingest(feeds)
+
+    assert result == 1
+    assert reader_class.call_count == 2
+    kafka_producer_class.return_value.flush.assert_called_once()
+
+
 def test_ingest_logs_error_when_feed_read_fails(caplog):
     feeds = [
         FeedConfiguration(
@@ -248,6 +280,46 @@ def test_main_logs_error_when_config_file_is_missing(caplog):
 
     assert result == 1
     assert "Feed configuration file not found" in caplog.text
+
+
+def test_run_ingests_before_processing():
+    with (
+        patch("newsnlp.cli.load_feeds", return_value=[]) as load_feeds_mock,
+        patch("newsnlp.cli.ingest", return_value=0) as ingest_mock,
+        patch("newsnlp.cli.process", return_value=0) as process_mock,
+    ):
+        from newsnlp.cli import run
+
+        result = run()
+
+    load_feeds_mock.assert_called_once()
+    ingest_mock.assert_called_once_with([])
+    process_mock.assert_called_once()
+    assert result == 0
+
+
+def test_run_processes_articles_even_if_one_feed_failed():
+    with (
+        patch("newsnlp.cli.load_feeds", return_value=[]),
+        patch("newsnlp.cli.ingest", return_value=1),
+        patch("newsnlp.cli.process", return_value=0) as process_mock,
+    ):
+        from newsnlp.cli import run
+
+        result = run()
+
+    process_mock.assert_called_once()
+    assert result == 1
+
+
+def test_main_runs_complete_application():
+    with patch("newsnlp.cli.run", return_value=0) as run_mock:
+        from newsnlp.cli import main
+
+        result = main(["run"])
+
+    run_mock.assert_called_once()
+    assert result == 0
 
 
 def test_process_configures_pipeline():
