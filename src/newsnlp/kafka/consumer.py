@@ -34,5 +34,9 @@ class KafkaArticleConsumer:
 
         return self.event_model.model_validate(payload)
 
+    def commit(self) -> None:
+        """Commit consumed Kafka offsets synchronously."""
+        self.consumer.commit(asynchronous=False)
+
     def close(self) -> None:
         self.consumer.close()

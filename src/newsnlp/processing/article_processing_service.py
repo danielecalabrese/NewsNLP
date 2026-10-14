@@ -23,6 +23,6 @@ class ArticleProcessingService:
             processed_at=processed_article.processed_at,
         )
 
-        self.producer.send(event)
+        self.producer.send_and_wait(event)
 
         return processed_article

@@ -48,9 +48,9 @@ def test_process_and_publish():
     assert result == processed_article
 
     processor.process.assert_called_once_with(article)
-    producer.send.assert_called_once()
+    producer.send_and_wait.assert_called_once()
 
-    event = producer.send.call_args.args[0]
+    event = producer.send_and_wait.call_args.args[0]
 
     assert isinstance(event, ProcessedArticleEvent)
     assert event.article == processed_article
@@ -83,7 +83,7 @@ def test_process_and_publish_processes_article_before_publishing():
     service.process_and_publish(article)
 
     processor.process.assert_called_once_with(article)
-    producer.send.assert_called_once()
+    producer.send_and_wait.assert_called_once()
 
 
 class FakeStorage:
@@ -114,4 +114,4 @@ def test_process_and_publish_saves_processed_article():
 
     assert len(storage.saved_articles) == 1
     assert storage.saved_articles[0] == result
-    producer.send.assert_called_once()
+    producer.send_and_wait.assert_called_once()
