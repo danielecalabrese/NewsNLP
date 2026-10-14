@@ -30,6 +30,7 @@ class NewsNLPPipeline:
             raise TypeError("Expected an ArticleCreatedEvent")
 
         self.processing_service.process_and_publish(event.article)
+        self.consumer.commit()
 
         return True
 

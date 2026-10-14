@@ -248,3 +248,58 @@ def test_main_logs_error_when_config_file_is_missing(caplog):
 
     assert result == 1
     assert "Feed configuration file not found" in caplog.text
+
+
+def test_process_configures_pipeline():
+    with (
+        patch("newsnlp.cli.Consumer") as consumer_class,
+        patch("newsnlp.cli.Producer") as producer_class,
+        patch("newsnlp.cli.MongoClient") as mongo_class,
+        patch("newsnlp.cli.MongoArticleStorage"),
+        patch("newsnlp.cli.KeywordExtractor"),
+        patch("newsnlp.cli.SentimentAnalyzer"),
+        patch("newsnlp.cli.ArticleProcessor"),
+        patch("newsnlp.cli.ArticleProcessingService"),
+        patch("newsnlp.cli.NewsNLPPipeline") as pipeline_class,
+    ):
+        pipeline = pipeline_class.return_value
+        pipeline.run_once.side_effect = KeyboardInterrupt
+
+        from newsnlp.cli import process
+
+        result = process()
+
+    assert result == 0
+
+    consumer_class.assert_called_once()
+    producer_class.assert_called_once()
+    mongo_class.assert_called_once_with("mongodb://localhost:27017")
+
+    pipeline.subscribe.assert_not_called()
+    pipeline.consumer.subscribe.assert_called_once()
+    pipeline.close.assert_called_once()
+    producer_class.return_value.flush.assert_called_once()
+    mongo_class.return_value.close.assert_called_once()
+
+
+def test_process_returns_error_on_pipeline_failure():
+    with (
+        patch("newsnlp.cli.Consumer"),
+        patch("newsnlp.cli.Producer"),
+        patch("newsnlp.cli.MongoClient"),
+        patch("newsnlp.cli.MongoArticleStorage"),
+        patch("newsnlp.cli.KeywordExtractor"),
+        patch("newsnlp.cli.SentimentAnalyzer"),
+        patch("newsnlp.cli.ArticleProcessor"),
+        patch("newsnlp.cli.ArticleProcessingService"),
+        patch("newsnlp.cli.NewsNLPPipeline") as pipeline_class,
+    ):
+        pipeline = pipeline_class.return_value
+        pipeline.run_once.side_effect = RuntimeError("Pipeline failure")
+
+        from newsnlp.cli import process
+
+        result = process()
+
+    assert result == 1
+    pipeline.close.assert_called_once()
