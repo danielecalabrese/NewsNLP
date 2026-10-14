@@ -38,6 +38,8 @@ def ingest(feeds: list[FeedConfiguration]) -> int:
         topic=KAFKA_TOPIC,
     )
 
+    has_errors = False
+
     for feed in feeds:
         if not feed.enabled:
             continue
@@ -59,11 +61,12 @@ def ingest(feeds: list[FeedConfiguration]) -> int:
 
         except ValueError:
             logger.error("Error ingesting feed: %s", feed.name)
-            return 1
+            has_errors = True
+            continue
 
     kafka_producer.flush()
 
-    return 0
+    return 1 if has_errors else 0
 
 
 def process() -> int:
@@ -136,11 +139,26 @@ def process() -> int:
     return 0
 
 
+def run() -> int:
+    """Ingest configured feeds, then start processing the Kafka pipeline."""
+
+    try:
+        feeds = load_feeds()
+    except FileNotFoundError:
+        logger.error("Feed configuration file not found: %s", CONFIG_FILE)
+        return 1
+
+    ingestion_result = ingest(feeds)
+    processing_result = process()
+
+    return 1 if ingestion_result or processing_result else 0
+
+
 def main(args: list[str] | None = None) -> int:
     """Run the NewsNLP command-line interface."""
 
     parser = argparse.ArgumentParser(description="NewsNLP CLI")
-    parser.add_argument("command", choices=["ingest", "process"])
+    parser.add_argument("command", choices=["ingest", "process", "run"])
 
     parsed_args = parser.parse_args(args)
 
@@ -155,6 +173,9 @@ def main(args: list[str] | None = None) -> int:
 
     if parsed_args.command == "process":
         return process()
+
+    if parsed_args.command == "run":
+        return run()
 
     return 1
 

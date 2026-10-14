@@ -215,6 +215,14 @@ pytest
 
 The Docker Compose configuration currently provides the Kafka and MongoDB infrastructure required by the project.
 
+Run the complete application workflow with:
+
+```bash
+python -m newsnlp.cli run
+```
+
+The command ingests articles from enabled feeds in `config/feeds.json`, then starts the Kafka processing loop. The `ingest` and `process` commands remain available for running either stage separately.
+
 ## Project Status
 
 🚧 Work in progress
