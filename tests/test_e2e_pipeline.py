@@ -19,7 +19,7 @@ from newsnlp.processing.pipeline import NewsNLPPipeline
 
 
 BROKER = "localhost:9092"
-MONGO_URI = "mongodb://localhost:27017"
+MONGO_URI = "mongodb://localhost:27018"
 
 
 def test_end_to_end_article_pipeline():

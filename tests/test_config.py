@@ -26,7 +26,7 @@ def test_settings_use_default_values(monkeypatch):
     assert settings.kafka_topic == "news.article"
     assert settings.kafka_processed_topic == "news.article.processed"
     assert settings.kafka_consumer_group == "newsnlp-processing"
-    assert settings.mongodb_uri == "mongodb://localhost:27017"
+    assert settings.mongodb_uri == "mongodb://localhost:27018"
     assert settings.mongodb_database == "newsnlp"
 
 

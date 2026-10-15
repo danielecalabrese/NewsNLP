@@ -6,7 +6,7 @@ from newsnlp.mongodb_storage import MongoArticleStorage
 from newsnlp.models.processed_article import ProcessedArticle
 
 
-MONGO_URI = "mongodb://localhost:27017"
+MONGO_URI = "mongodb://localhost:27018"
 DATABASE_NAME = "newsnlp_test"
 
 
