@@ -110,7 +110,7 @@ The local infrastructure includes:
 | Service      | Container         | Address           |
 | ------------ | ----------------- | ----------------- |
 | Apache Kafka | `newsnlp-kafka`   | `localhost:9092`  |
-| MongoDB      | `newsnlp-mongodb` | `localhost:27017` |
+| MongoDB      | `newsnlp-mongodb` | `localhost:27018` |
 
 Kafka uses KRaft mode and does not require a separate ZooKeeper service.
 MongoDB data is persisted through the `mongodb_data` Docker volume.
@@ -160,13 +160,13 @@ The application supports the following environment variables:
 |      `KAFKA_TOPIC`      |       `news.article`        | Kafka topic for incoming article events  |
 | `KAFKA_PROCESSED_TOPIC` |  `news.article.processed`   | Kafka topic for processed article events |
 | `KAFKA_CONSUMER_GROUP`  |    `newsnlp-processing`     |           Kafka consumer group           |
-|      `MONGODB_URI`      | `mongodb://localhost:27017` |          MongoDB connection URI          |
+|      `MONGODB_URI`      | `mongodb://localhost:27018` |          MongoDB connection URI          |
 |   `MONGODB_DATABASE`    |          `newsnlp`          |          MongoDB database name           |
 
 Example configuration:
 ```
 export KAFKA_BROKER="localhost:9092"
-export MONGODB_URI="mongodb://localhost:27017"
+export MONGODB_URI="mongodb://localhost:27018"
 export MONGODB_DATABASE="newsnlp"
 ```
 The default values are suitable for the local Docker Compose environment.

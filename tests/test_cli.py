@@ -386,7 +386,7 @@ def test_process_configures_pipeline():
 
     consumer_class.assert_called_once()
     producer_class.assert_called_once()
-    mongo_class.assert_called_once_with("mongodb://localhost:27017")
+    mongo_class.assert_called_once_with("mongodb://localhost:27018")
 
     pipeline.subscribe.assert_not_called()
     pipeline.consumer.subscribe.assert_called_once()

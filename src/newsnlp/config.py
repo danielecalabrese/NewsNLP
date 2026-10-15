@@ -36,7 +36,7 @@ class Settings:
                 "KAFKA_CONSUMER_GROUP", "newsnlp-processing"
             ),
             mongodb_uri=os.getenv(
-                "MONGODB_URI", "mongodb://localhost:27017"
+                "MONGODB_URI", "mongodb://localhost:27018"
             ),
             mongodb_database=os.getenv(
                 "MONGODB_DATABASE", "newsnlp"
