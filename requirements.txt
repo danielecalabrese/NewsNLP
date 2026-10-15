@@ -16,3 +16,4 @@ langdetect==1.0.9
 transformers==5.17.0
 torch==2.14.0
 pymongo==4.18.1
+confluent-kafka==2.15.0
