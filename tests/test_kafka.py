@@ -81,7 +81,7 @@ def test_kafka_article_producer_registers_delivery_callback():
     assert callable(call_kwargs["callback"])
 
 
-def test_kafka_article_producer_delivery_callback_raises_on_error():
+def test_kafka_article_producer_delivery_callback_logs_error(caplog):
     producer = Mock()
 
     kafka_producer = KafkaArticleProducer(
@@ -89,15 +89,16 @@ def test_kafka_article_producer_delivery_callback_raises_on_error():
         topic="news.article",
     )
 
-    with pytest.raises(RuntimeError, match="Kafka delivery failed"):
-        kafka_producer._delivery_callback(
-            Exception("Kafka error"),
-            None,
-        )
+    with caplog.at_level("ERROR"):
+        kafka_producer._delivery_callback("Kafka error", Mock())
+
+    assert "Kafka delivery failed for topic news.article" in caplog.text
+    assert "Kafka error" in caplog.text
 
 
 def test_kafka_article_producer_does_not_flush_after_send():
     producer = Mock()
+    producer.flush.return_value = 0
 
     kafka_producer = KafkaArticleProducer(
         producer=producer,
@@ -113,15 +114,13 @@ def test_kafka_article_producer_does_not_flush_after_send():
 
 def test_kafka_article_producer_flush():
     producer = Mock()
+    producer.flush.return_value = 0
 
-    kafka_producer = KafkaArticleProducer(
-        producer=producer,
-        topic="news.article",
-    )
+    kafka_producer = KafkaArticleProducer(producer, "news.article")
 
     kafka_producer.flush()
 
-    producer.flush.assert_called_once()
+    producer.flush.assert_called_once_with(10.0)
 
 
 def test_kafka_article_consumer_initialization():

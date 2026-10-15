@@ -44,6 +44,8 @@ def test_kafka_article_producer_send():
 
 def test_kafka_article_producer_flush():
     producer = Mock()
+    producer.flush.return_value = 0
+
     kafka_producer = KafkaArticleProducer(producer, "news.article")
 
     kafka_producer.flush()
@@ -58,12 +60,15 @@ def test_kafka_article_producer_delivery_callback_success():
     kafka_producer._delivery_callback(None, Mock())
 
 
-def test_kafka_article_producer_delivery_callback_error():
+def test_kafka_article_producer_delivery_callback_error(caplog):
     producer = Mock()
     kafka_producer = KafkaArticleProducer(producer, "news.article")
 
-    with pytest.raises(RuntimeError, match="Kafka delivery failed"):
+    with caplog.at_level("ERROR"):
         kafka_producer._delivery_callback("delivery error", Mock())
+
+    assert "Kafka delivery failed for topic news.article" in caplog.text
+    assert "delivery error" in caplog.text
 
 
 def test_kafka_article_producer_send_processed_article_event():
@@ -94,3 +99,24 @@ def test_kafka_article_producer_send_processed_article_event():
     assert call_kwargs["topic"] == "news.article"
     assert call_kwargs["value"] == event.model_dump_json()
     assert call_kwargs["callback"] == kafka_producer._delivery_callback
+
+
+def test_kafka_article_producer_flush_raises_on_timeout():
+    producer = Mock()
+    producer.flush.return_value = 1
+
+    kafka_producer = KafkaArticleProducer(producer, "news.article")
+
+    with pytest.raises(TimeoutError, match="Kafka delivery timed out"):
+        kafka_producer.flush()
+
+
+def test_kafka_article_producer_flush_raises_on_delivery_error():
+    producer = Mock()
+    producer.flush.return_value = 0
+
+    kafka_producer = KafkaArticleProducer(producer, "news.article")
+    kafka_producer._delivery_callback("delivery error", Mock())
+
+    with pytest.raises(RuntimeError, match="Kafka delivery failed"):
+        kafka_producer.flush()
