@@ -3,8 +3,10 @@ from unittest.mock import Mock, patch
 
 from newsnlp.models.article import Article
 
-from newsnlp.cli import ingest
+from newsnlp.cli import ingest, load_feeds
 from newsnlp.models.feed import FeedConfiguration
+
+import pytest
 
 
 def test_ingest_reads_enabled_feeds():
@@ -375,3 +377,23 @@ def test_process_returns_error_on_pipeline_failure():
 
     assert result == 1
     pipeline.close.assert_called_once()
+
+
+def test_load_feeds_raises_error_when_json_is_invalid(tmp_path):
+    """Loading an invalid JSON configuration should raise ValueError."""
+
+    config_file = tmp_path / "feeds.json"
+    config_file.write_text("{invalid json", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Invalid JSON"):
+        load_feeds(config_file)
+
+
+def test_load_feeds_raises_error_when_feeds_list_is_missing(tmp_path):
+    """Loading a configuration without a feeds list should raise ValueError."""
+
+    config_file = tmp_path / "feeds.json"
+    config_file.write_text('{"sources": []}', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="must contain a 'feeds' list"):
+        load_feeds(config_file)
