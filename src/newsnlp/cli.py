@@ -6,6 +6,7 @@ from pathlib import Path
 
 from confluent_kafka import Consumer, Producer
 from pymongo import MongoClient
+from newsnlp.config import settings
 
 from newsnlp.kafka.consumer import KafkaArticleConsumer
 from newsnlp.kafka.producer import KafkaArticleProducer
@@ -21,13 +22,13 @@ from newsnlp.readers.rss import RSSReader
 
 logger = logging.getLogger(__name__)
 
-CONFIG_FILE = Path("config/feeds.json")
-KAFKA_BROKER = "localhost:9092"
-KAFKA_TOPIC = "news.article"
-KAFKA_PROCESSED_TOPIC = "news.article.processed"
-KAFKA_CONSUMER_GROUP = "newsnlp-processing"
-MONGODB_URI = "mongodb://localhost:27017"
-MONGODB_DATABASE = "newsnlp"
+CONFIG_FILE = settings.feeds_file
+KAFKA_BROKER = settings.kafka_broker
+KAFKA_TOPIC = settings.kafka_topic
+KAFKA_PROCESSED_TOPIC = settings.kafka_processed_topic
+KAFKA_CONSUMER_GROUP = settings.kafka_consumer_group
+MONGODB_URI = settings.mongodb_uri
+MONGODB_DATABASE = settings.mongodb_database
 
 def ingest(feeds: list[FeedConfiguration]) -> int:
     """Ingest articles from enabled RSS feeds and publish them to Kafka."""
@@ -139,13 +140,19 @@ def process() -> int:
     return 0
 
 
-def run() -> int:
+def run(config_file: Path | None = None) -> int:
     """Ingest configured feeds, then start processing the Kafka pipeline."""
 
     try:
-        feeds = load_feeds()
+        feeds = load_feeds(config_file)
     except FileNotFoundError:
-        logger.error("Feed configuration file not found: %s", CONFIG_FILE)
+        logger.error(
+            "Feed configuration file not found: %s",
+            config_file or CONFIG_FILE,
+        )
+        return 1
+    except ValueError as exc:
+        logger.error("Invalid feed configuration: %s", exc)
         return 1
 
     ingestion_result = ingest(feeds)
@@ -158,15 +165,31 @@ def main(args: list[str] | None = None) -> int:
     """Run the NewsNLP command-line interface."""
 
     parser = argparse.ArgumentParser(description="NewsNLP CLI")
-    parser.add_argument("command", choices=["ingest", "process", "run"])
+    parser.add_argument(
+        "command",
+        choices=["ingest", "process", "run"],
+        help="Application command to execute",
+    )
+    parser.add_argument(
+        "--feeds-file",
+        type=Path,
+        default=None,
+        help="Path to the JSON file containing RSS feed configurations",
+    )
 
     parsed_args = parser.parse_args(args)
 
     if parsed_args.command == "ingest":
         try:
-            feeds = load_feeds()
+            feeds = load_feeds(parsed_args.feeds_file)
         except FileNotFoundError:
-            logger.error("Feed configuration file not found: %s", CONFIG_FILE)
+            logger.error(
+                "Feed configuration file not found: %s",
+                parsed_args.feeds_file or CONFIG_FILE,
+            )
+            return 1
+        except ValueError as exc:
+            logger.error("Invalid feed configuration: %s", exc)
             return 1
 
         return ingest(feeds)
@@ -175,18 +198,37 @@ def main(args: list[str] | None = None) -> int:
         return process()
 
     if parsed_args.command == "run":
-        return run()
+        return run(parsed_args.feeds_file)
 
     return 1
 
 
-def load_feeds() -> list[FeedConfiguration]:
-    """Load feed configurations from the JSON configuration file."""
+def load_feeds(
+    config_file: Path | None = None,
+) -> list[FeedConfiguration]:
+    """Load and validate feed configurations from a JSON file."""
 
-    with CONFIG_FILE.open(encoding="utf-8") as file:
-        data = json.load(file)
+    config_file = config_file or CONFIG_FILE
 
-    return [FeedConfiguration(**feed) for feed in data["feeds"]]
+    try:
+        with config_file.open(encoding="utf-8") as file:
+            data = json.load(file)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"Invalid JSON in feed configuration file: {config_file}"
+        ) from exc
+
+    if not isinstance(data, dict) or not isinstance(data.get("feeds"), list):
+        raise ValueError(
+            f"Feed configuration must contain a 'feeds' list: {config_file}"
+        )
+
+    try:
+        return [FeedConfiguration(**feed) for feed in data["feeds"]]
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"Invalid feed configuration in file: {config_file}"
+        ) from exc
 
 
 if __name__ == "__main__":
