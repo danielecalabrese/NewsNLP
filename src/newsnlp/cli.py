@@ -1,6 +1,7 @@
 import argparse
 import json
 import logging
+import requests
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -60,12 +61,16 @@ def ingest(feeds: list[FeedConfiguration]) -> int:
                 )
                 kafka_producer.send(event)
 
-        except ValueError:
-            logger.error("Error ingesting feed: %s", feed.name)
+        except (ValueError, requests.RequestException):
+            logger.exception("Error ingesting feed: %s", feed.name)
             has_errors = True
             continue
 
-    kafka_producer.flush()
+    try:
+        kafka_producer.flush()
+    except (RuntimeError, TimeoutError):
+        logger.exception("Failed to flush Kafka messages")
+        has_errors = True
 
     return 1 if has_errors else 0
 
@@ -73,53 +78,58 @@ def ingest(feeds: list[FeedConfiguration]) -> int:
 def process() -> int:
     """Consume article events and run the NewsNLP processing pipeline."""
 
-    consumer = Consumer(
-        {
-            "bootstrap.servers": KAFKA_BROKER,
-            "group.id": KAFKA_CONSUMER_GROUP,
-            "auto.offset.reset": "earliest",
-            "enable.auto.commit": False,
-        }
-    )
-
-    producer = Producer({"bootstrap.servers": KAFKA_BROKER})
-    mongo_client = MongoClient(MONGODB_URI)
-
-    kafka_consumer = KafkaArticleConsumer(
-        consumer=consumer,
-        topic=KAFKA_TOPIC,
-        event_model=ArticleCreatedEvent,
-    )
-
-    kafka_producer = KafkaArticleProducer(
-        producer=producer,
-        topic=KAFKA_PROCESSED_TOPIC,
-    )
-
-    storage = MongoArticleStorage(
-        client=mongo_client,
-        database_name=MONGODB_DATABASE,
-    )
-
-    processor = ArticleProcessor(
-        keyword_extractor=KeywordExtractor(),
-        sentiment_analyzer=SentimentAnalyzer(),
-        storage=storage,
-    )
-
-    processing_service = ArticleProcessingService(
-        processor=processor,
-        producer=kafka_producer,
-    )
-
-    pipeline = NewsNLPPipeline(
-        consumer=kafka_consumer,
-        processing_service=processing_service,
-    )
+    consumer = None
+    producer = None
+    mongo_client = None
+    pipeline = None
+    exit_code = 0
 
     try:
-        pipeline.consumer.subscribe()
+        consumer = Consumer(
+            {
+                "bootstrap.servers": KAFKA_BROKER,
+                "group.id": KAFKA_CONSUMER_GROUP,
+                "auto.offset.reset": "earliest",
+                "enable.auto.commit": False,
+            }
+        )
 
+        producer = Producer({"bootstrap.servers": KAFKA_BROKER})
+        mongo_client = MongoClient(MONGODB_URI)
+
+        kafka_consumer = KafkaArticleConsumer(
+            consumer=consumer,
+            topic=KAFKA_TOPIC,
+            event_model=ArticleCreatedEvent,
+        )
+
+        kafka_producer = KafkaArticleProducer(
+            producer=producer,
+            topic=KAFKA_PROCESSED_TOPIC,
+        )
+
+        storage = MongoArticleStorage(
+            client=mongo_client,
+            database_name=MONGODB_DATABASE,
+        )
+
+        processor = ArticleProcessor(
+            keyword_extractor=KeywordExtractor(),
+            sentiment_analyzer=SentimentAnalyzer(),
+            storage=storage,
+        )
+
+        processing_service = ArticleProcessingService(
+            processor=processor,
+            producer=kafka_producer,
+        )
+
+        pipeline = NewsNLPPipeline(
+            consumer=kafka_consumer,
+            processing_service=processing_service,
+        )
+
+        pipeline.consumer.subscribe()
         logger.info("NewsNLP processing pipeline started")
 
         while True:
@@ -130,14 +140,37 @@ def process() -> int:
 
     except Exception:
         logger.exception("Error in NewsNLP processing pipeline")
-        return 1
+        exit_code = 1
 
     finally:
-        pipeline.close()
-        producer.flush()
-        mongo_client.close()
+        if pipeline is not None:
+            try:
+                pipeline.close()
+            except Exception:
+                logger.exception("Error closing NewsNLP pipeline")
+                exit_code = 1
 
-    return 0
+        if producer is not None:
+            try:
+                remaining = producer.flush(10.0)
+                if remaining > 0:
+                    logger.error(
+                        "Kafka producer shutdown timed out: %s messages remain",
+                        remaining,
+                    )
+                    exit_code = 1
+            except Exception:
+                logger.exception("Error flushing Kafka producer")
+                exit_code = 1
+
+        if mongo_client is not None:
+            try:
+                mongo_client.close()
+            except Exception:
+                logger.exception("Error closing MongoDB client")
+                exit_code = 1
+
+    return exit_code
 
 
 def run(config_file: Path | None = None) -> int:

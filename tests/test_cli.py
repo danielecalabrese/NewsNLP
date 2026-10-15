@@ -7,6 +7,7 @@ from newsnlp.cli import ingest, load_feeds
 from newsnlp.models.feed import FeedConfiguration
 
 import pytest
+import requests
 
 
 def test_ingest_reads_enabled_feeds():
@@ -168,6 +169,42 @@ def test_ingest_logs_error_when_feed_read_fails(caplog):
 
     assert result == 1
     assert "Error ingesting feed: Broken Feed" in caplog.text
+
+
+def test_ingest_continues_after_a_feed_request_fails():
+    feeds = [
+        FeedConfiguration(
+            name="Broken Feed",
+            url="https://example.com/broken.xml",
+            enabled=True,
+        ),
+        FeedConfiguration(
+            name="Working Feed",
+            url="https://example.com/working.xml",
+            enabled=True,
+        ),
+    ]
+
+    with (
+        patch("newsnlp.cli.RSSReader") as reader_class,
+        patch("newsnlp.cli.Producer"),
+        patch("newsnlp.cli.KafkaArticleProducer") as kafka_producer_class,
+    ):
+        broken_reader = Mock()
+        broken_reader.read.side_effect = requests.ConnectionError(
+            "Connection failed"
+        )
+
+        working_reader = Mock()
+        working_reader.read.return_value = []
+
+        reader_class.side_effect = [broken_reader, working_reader]
+
+        result = ingest(feeds)
+
+    assert result == 1
+    assert reader_class.call_count == 2
+    kafka_producer_class.return_value.flush.assert_called_once()
 
 
 def test_main_runs_ingestion():
@@ -336,6 +373,8 @@ def test_process_configures_pipeline():
         patch("newsnlp.cli.ArticleProcessingService"),
         patch("newsnlp.cli.NewsNLPPipeline") as pipeline_class,
     ):
+        producer_class.return_value.flush.return_value = 0
+
         pipeline = pipeline_class.return_value
         pipeline.run_once.side_effect = KeyboardInterrupt
 
@@ -397,3 +436,44 @@ def test_load_feeds_raises_error_when_feeds_list_is_missing(tmp_path):
 
     with pytest.raises(ValueError, match="must contain a 'feeds' list"):
         load_feeds(config_file)
+
+
+def test_process_handles_initialization_error():
+    with (
+        patch("newsnlp.cli.Consumer", side_effect=RuntimeError("Kafka unavailable")),
+        patch("newsnlp.cli.Producer") as producer_class,
+        patch("newsnlp.cli.MongoClient") as mongo_class,
+    ):
+        from newsnlp.cli import process
+
+        result = process()
+
+    assert result == 1
+    producer_class.assert_not_called()
+    mongo_class.assert_not_called()
+
+
+def test_process_closes_mongo_when_pipeline_close_fails():
+    with (
+        patch("newsnlp.cli.Consumer"),
+        patch("newsnlp.cli.Producer") as producer_class,
+        patch("newsnlp.cli.MongoClient") as mongo_class,
+        patch("newsnlp.cli.MongoArticleStorage"),
+        patch("newsnlp.cli.KeywordExtractor"),
+        patch("newsnlp.cli.SentimentAnalyzer"),
+        patch("newsnlp.cli.ArticleProcessor"),
+        patch("newsnlp.cli.ArticleProcessingService"),
+        patch("newsnlp.cli.NewsNLPPipeline") as pipeline_class,
+    ):
+        producer_class.return_value.flush.return_value = 0
+
+        pipeline = pipeline_class.return_value
+        pipeline.run_once.side_effect = KeyboardInterrupt
+        pipeline.close.side_effect = RuntimeError("Pipeline close failed")
+
+        from newsnlp.cli import process
+
+        result = process()
+
+    assert result == 1
+    mongo_class.return_value.close.assert_called_once()

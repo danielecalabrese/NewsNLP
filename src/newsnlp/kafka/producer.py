@@ -1,11 +1,16 @@
+import logging
+
 from confluent_kafka import Producer
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 
 class KafkaArticleProducer:
     def __init__(self, producer: Producer, topic: str):
         self.producer = producer
         self.topic = topic
+        self._delivery_errors = []
 
     def send(self, event: BaseModel) -> None:
         """Publish an event asynchronously."""
@@ -45,10 +50,24 @@ class KafkaArticleProducer:
             raise RuntimeError(
                 f"Kafka delivery failed: {delivery_errors[0]}"
             )
+        
 
-    def flush(self) -> None:
-        self.producer.flush()
+    def flush(self, timeout: float = 10.0) -> None:
+        remaining = self.producer.flush(timeout)
 
+        if remaining > 0:
+            raise TimeoutError("Kafka delivery timed out")
+
+        if self._delivery_errors:
+            error = self._delivery_errors.pop(0)
+            raise RuntimeError(f"Kafka delivery failed: {error}")
+
+        
     def _delivery_callback(self, err, msg) -> None:
         if err is not None:
-            raise RuntimeError(f"Kafka delivery failed: {err}")
+            self._delivery_errors.append(err)
+            logger.error(
+                "Kafka delivery failed for topic %s: %s",
+                self.topic,
+                err,
+            )
